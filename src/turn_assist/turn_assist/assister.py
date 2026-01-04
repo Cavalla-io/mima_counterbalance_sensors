@@ -1,11 +1,18 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32
-from sensor_msgs.msg import Image, CameraInfo
+from sensor_msgs.msg import Image, CameraInfo, CompressedImage
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
 import math
+
+
+import json
+import numpy as np
+
+
+
 
 class TurnOverlayGround(Node):
     def __init__(self):
@@ -15,7 +22,6 @@ class TurnOverlayGround(Node):
 
         self.bridge = CvBridge()
         self.turn_val = 0.0
-        self.K = None  # Camera intrinsics
 
         # Assumptions
         self.cam_height = 1.8  # meters (Camera is at [0, 1.0, 0] in world frame)
@@ -23,9 +29,36 @@ class TurnOverlayGround(Node):
 
         # Subscriptions
         self.create_subscription(Float32, '/turn_cmd', self.turn_callback, 10)
-        self.create_subscription(Image, '/front_low/rgb/h264', self.image_callback, 10)
+        # self.create_subscription(Image, '/front_low/rgb/h264', self.image_callback, 10)
+        from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+
+        qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+
+        self.create_subscription(
+            CompressedImage,
+            '/front_low/rgb/h264',
+            self.image_callback,
+            qos
+        )
+
         # Assuming '/oak/stereo/camera_info' provides the intrinsics for the /oak/rgb/image_rect topic
-        self.create_subscription(CameraInfo, '/oak/stereo/camera_info', self.camera_info_callback, 10)
+        # self.create_subscription(CameraInfo, '/oak/stereo/camera_info', self.camera_info_callback, 10)
+        
+        with open('/home/cavallatestbench/mima_counterbalance_sensors/src/luxonis_cams/luxonis_cams/system_calibration_dump.json', 'r') as f:
+            cam_json = json.load(f)
+
+        # Get the first cameraData (or pick the camera index you want)
+        camera_data = cam_json['front_cam']['raw_eeprom']['cameraData'][0][1]
+
+        # Extract intrinsic matrix
+        self.intrinsic_matrix = np.array(camera_data['intrinsicMatrix'])
+        self.K = self.intrinsic_matrix  # Camera intrinsics
+        
 
         self.publisher = self.create_publisher(Image, '/turn_overlay/image', 10)
 
@@ -149,13 +182,18 @@ class TurnOverlayGround(Node):
                     (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
         
         return frame
-
-    def image_callback(self, msg):
-        # self.get_logger().info("[info] Received camera frame")
+    def image_callback(self, msg: CompressedImage):
+        print("got image")
         try:
-            frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            # Convert compressed image to OpenCV
+            np_arr = np.frombuffer(msg.data, np.uint8)
+            frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+            if frame is None:
+                raise ValueError("cv2.imdecode returned None")
+
         except Exception as e:
-            self.get_logger().error(f"[ERROR] Failed to convert image: {e}")
+            self.get_logger().error(f"[ERROR] Failed to decode compressed image: {e}")
             return
 
         if self.K is not None:
@@ -165,7 +203,7 @@ class TurnOverlayGround(Node):
 
         overlay_msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
         self.publisher.publish(overlay_msg)
-        # self.get_logger().info("[info] Published overlay frame")
+
 
 def main(args=None):
     rclpy.init(args=args)
