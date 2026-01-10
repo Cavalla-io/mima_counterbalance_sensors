@@ -1,0 +1,22 @@
+/**:
+  ros__parameters:
+    # Each index defines ONE camera stream -> ONE LiveKit track
+    # All 4 available OAK cameras with 15-second staggered starts
+    streams:
+      names:  ["fork",          "right",          "left",       "fork_low", "front_low","back_top"]
+      topics: ["/fork/rgb/h264", "/right/rgb/h264", "/left/rgb/h264", "/fork_low/rgb/h264", "/front_low/rgb/h264","/back_top/rgb/h264"]
+      # Hardware H.264 encoded streams from OAK cameras
+      codecs: ["h264",          "h264",           "h264",           "h264", "h264" , "h264"]
+
+      # OAK-POE Camera IP Addresses - All 4 cameras (some may fail due to XLink bug)
+      camera_ips: ["192.168.2.20", "192.168.2.21", "192.168.2.22", "192.168.2.26", "192.168.2.25","192.168.2.24"]
+
+      # Optional: Resolution and bitrate settings per stream
+      widths:    [1280, 1280, 1280, 1280, 1280,1280]
+      heights:   [720,  720,  720,  720,  720,720]
+      fps:       [30,   30,   30,   30,   30,30]
+      bitrates:  [1000000, 1000000, 1000000, 1000000, 1000000,1000000]  # 1 Mbps each (matches reference)
+
+      # Camera IP reference (all 4 cameras, 15s delay between each):
+      # fork: 192.168.2.20, right: 192.168.2.21, left: 192.168.2.22, front_low: 192.168.2.25 back_top: 192.168.2.24
+      # OFFLINE: up (192.168.2.23), front (192.168.2.27)

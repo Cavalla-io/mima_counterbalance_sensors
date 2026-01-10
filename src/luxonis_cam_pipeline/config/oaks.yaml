@@ -1,0 +1,68 @@
+cameras:
+  - ip: 192.168.2.20
+    topic_prefix: fork
+    rgb_width: 1280
+    rgb_height: 720
+    fps: 15.0
+    compression: mjpeg       # h264 | h265 | mjpeg
+    jpeg_quality: 90         # only used when compression: mjpeg
+    # bitrate_kbps: 10000    # only used when compression: h265 / h264 
+    # keyframe_interval: 60  # only used when compression: h265 / h264
+    # high_profile: false    # only used when compression: h264 
+
+  - ip: 192.168.2.21
+    topic_prefix: right
+    rgb_width: 1280
+    rgb_height: 720
+    fps: 15.0
+    compression: mjpeg       # h264 | h265 | mjpeg
+    jpeg_quality: 90         # only used when compression: mjpeg
+    # bitrate_kbps: 10000    # only used when compression: h265 / h264
+    # keyframe_interval: 60  # only used when compression: h265 / h264
+    # high_profile: false    # only used when compression: h264
+
+  - ip: 192.168.2.22
+    topic_prefix: left
+    rgb_width: 1280
+    rgb_height: 720
+    fps: 15.0
+    compression: mjpeg       # h264 | h265 | mjpeg
+    jpeg_quality: 90         # only used when compression: mjpeg
+    # bitrate_kbps: 10000    # only used when compression: h265 / h264
+    # keyframe_interval: 60  # only used when compression: h265 / h264
+    # high_profile: false    # only used when compression: h264
+
+  - ip: 192.168.2.23
+    topic_prefix: up
+    rgb_width: 1280
+    rgb_height: 720
+    fps: 15.0
+    compression: mjpeg       # h264 | h265 | mjpeg
+    jpeg_quality: 90         # only used when compression: mjpeg
+    # bitrate_kbps: 10000    # only used when compression: h265 / h264
+    # keyframe_interval: 60  # only used when compression: h265 / h264
+    # high_profile: false    # only used when compression: h264
+
+  - ip: 192.168.2.24
+    topic_prefix: front
+    rgb_width: 1280
+    rgb_height: 720
+    fps: 15.0
+    compression: mjpeg       # h264 | h265 | mjpeg
+    jpeg_quality: 90         # only used when compression: mjpeg
+    # bitrate_kbps: 10000    # only used when compression: h265 / h264
+    # keyframe_interval: 60  # only used when compression: h265 / h264
+    # high_profile: false    # only used when compression: h264
+
+  - ip: 192.168.2.25
+    topic_prefix: front_low
+    rgb_width: 1280
+    rgb_height: 720
+    fps: 15.0
+    compression: mjpeg       # h264 | h265 | mjpeg
+    jpeg_quality: 90         # only used when compression: mjpeg
+    # bitrate_kbps: 10000    # only used when compression: h265 / h264
+    # keyframe_interval: 60  # only used when compression: h265 / h264
+    # high_profile: false    # only used when compression: h264
+
+
