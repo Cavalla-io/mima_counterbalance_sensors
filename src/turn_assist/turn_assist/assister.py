@@ -28,7 +28,7 @@ class TurnOverlayGround(Node):
         self.cam_pitch = -math.radians(80)  # downward tilt
 
         # Subscriptions
-        self.create_subscription(Float32, '/turn_cmd', self.turn_callback, 10)
+        self.create_subscription(Float32, '/steering_angle', self.turn_callback, 10)
         # self.create_subscription(Image, '/front_low/rgb/h264', self.image_callback, 10)
         from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 
@@ -40,30 +40,26 @@ class TurnOverlayGround(Node):
         )
 
         self.create_subscription(
-            CompressedImage,
-            '/front_low/rgb/h264',
+            Image,
+            '/front_low/rgb/image',
             self.image_callback,
             qos
         )
 
-        # Assuming '/oak/stereo/camera_info' provides the intrinsics for the /oak/rgb/image_rect topic
-        # self.create_subscription(CameraInfo, '/oak/stereo/camera_info', self.camera_info_callback, 10)
-        
-        with open('/home/cavallatestbench/mima_counterbalance_sensors/src/luxonis_cams/luxonis_cams/system_calibration_dump.json', 'r') as f:
-            cam_json = json.load(f)
-
-        # Get the first cameraData (or pick the camera index you want)
-        camera_data = cam_json['front_cam']['raw_eeprom']['cameraData'][0][1]
 
         # Extract intrinsic matrix
-        self.intrinsic_matrix = np.array(camera_data['intrinsicMatrix'])
+        with open('/home/cavallaindustrial/mima_counterbalance_sensors/src/luxonis_cams/luxonis_cams/system_calibration_dump.json', 'r') as f:
+            cam_json = json.load(f)
+
+        # Get intrinsics for front_low_cam RGB camera
+        self.intrinsic_matrix = np.array(cam_json['front_low_cam']['rgb']['default_intrinsics'])
         self.K = self.intrinsic_matrix  # Camera intrinsics
         
 
         self.publisher = self.create_publisher(Image, '/turn_overlay/image', 10)
 
     def turn_callback(self, msg):
-        self.turn_val = max(-1.0, min(msg.data, 1.0))
+        self.turn_val = msg.data
         # self.get_logger().info(f"[info] Updated turn value: {self.turn_val:.2f}")
 
     def camera_info_callback(self, msg: CameraInfo):
@@ -106,7 +102,7 @@ class TurnOverlayGround(Node):
         h, w = frame.shape[:2]
         
         points = []
-        angle_deg = self.turn_val * 90
+        angle_deg = self.turn_val
         vehicle_lenght = 1 
         wheel_base =  1.2
         if self.turn_val > 0.05 or self.turn_val  < -0.05:  
@@ -182,20 +178,12 @@ class TurnOverlayGround(Node):
                     (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
         
         return frame
-    def image_callback(self, msg: CompressedImage):
-        print("got image")
-        try:
-            # Convert compressed image to OpenCV
-            np_arr = np.frombuffer(msg.data, np.uint8)
-            frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-
-            if frame is None:
-                raise ValueError("cv2.imdecode returned None")
-
-        except Exception as e:
-            self.get_logger().error(f"[ERROR] Failed to decode compressed image: {e}")
-            return
-
+    
+    def image_callback(self, msg: Image):
+        # print("got image")
+    
+        frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            
         if self.K is not None:
             frame = self.draw_ground_path(frame)
         else:

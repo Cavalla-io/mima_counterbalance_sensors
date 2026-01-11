@@ -26,7 +26,7 @@ def _spawn_nodes(context):
         rgb_width    = int(cam.get("rgb_width", 1280))
         rgb_height   = int(cam.get("rgb_height", 720))
         mono_height  = int(cam.get("mono_height", 720))
-        fps          = float(cam.get("fps", 20.0))
+        fps          = float(cam.get("fps", 30.0))
         nodes.append(
             Node(
                 package="luxonis_cam_pipeline",
