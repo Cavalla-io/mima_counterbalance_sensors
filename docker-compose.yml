@@ -15,4 +15,5 @@ services:
       - ./logs:/ros_ws/logs
     environment:
       - ROS_DOMAIN_ID=0
-      - ROS_LOCALHOST_ONLY=0
+      - ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
+      - FASTRTPS_DEFAULT_PROFILES_FILE=/ros_ws/fastrtps.xml

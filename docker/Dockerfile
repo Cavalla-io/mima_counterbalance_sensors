@@ -36,3 +36,4 @@ COPY launch.sh /launch.sh
 RUN chmod +x /launch.sh
 
 ENTRYPOINT ["/launch.sh"]
+COPY docker/fastrtps.xml /ros_ws/fastrtps.xml
