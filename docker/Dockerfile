@@ -35,5 +35,10 @@ RUN . /opt/ros/jazzy/setup.sh && \
 COPY launch.sh /launch.sh
 RUN chmod +x /launch.sh
 
+# Check if any tmux session exists
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD tmux list-sessions 2>/dev/null || exit 1
+
+
 ENTRYPOINT ["/launch.sh"]
 COPY docker/fastrtps.xml /ros_ws/fastrtps.xml
