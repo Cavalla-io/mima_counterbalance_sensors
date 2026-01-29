@@ -16,7 +16,7 @@ except ImportError:
 CAN_INTERFACE = "can1"
 NODE_ID = 5
 COB_ID = 0x180 + NODE_ID  # 0x185
-FACTORY_RESOLUTION_MM = 0.05 
+FACTORY_RESOLUTION_MM = 0.025
 
 def get_live_position():
     """Opens a raw socket and waits for one message from the encoder."""

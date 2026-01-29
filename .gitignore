@@ -2,6 +2,7 @@ build/
 install/
 log/
 src/vanjee_lidar_sdk/
+src/pull_wire_encoder/config/encoder-config.yaml
 venv/
 .venv/
 env/
