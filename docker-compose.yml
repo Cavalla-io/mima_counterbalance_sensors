@@ -6,6 +6,8 @@ services:
       dockerfile: docker/Dockerfile
     container_name: sensors_launch
     stdin_open: true
+    restart: unless-stopped
+
     tty: true
     privileged: true
     network_mode: host
