@@ -8,12 +8,17 @@ services:
     stdin_open: true
     tty: true
     privileged: true
+    devices:
+      - /dev/bus/usb:/dev/bus/usb # Add this line for USB access
+    device_cgroup_rules: # Add this section
+      - 'c 189:* rmw'    # Rule for USB devices (c 189 is the major number for USB devices)
     restart: unless-stopped
     network_mode: host
     volumes:
       - /dev:/dev
       - ./config:/ros_ws/config:ro
       - ./logs:/ros_ws/logs
+      - ./src:/ros_ws/src
     environment:
       - ROS_DOMAIN_ID=0
       - ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET

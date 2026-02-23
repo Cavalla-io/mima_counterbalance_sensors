@@ -20,12 +20,18 @@ RUN apt-get update && apt-get install -y \
 
 RUN pip3 install --no-cache-dir --break-system-packages numpy pyyaml pyserial
 
+
+
+
+
+
 # Copy tmux config
 COPY docker/.tmux.conf /root/.tmux.conf
 
 # Create workspace
 WORKDIR /ros_ws
 COPY src/ /ros_ws/src/
+COPY src/threat_detector/models /ros_ws/src/threat_detector/models
 
 # Build workspace
 RUN . /opt/ros/jazzy/setup.sh && \
