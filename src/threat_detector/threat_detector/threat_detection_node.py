@@ -10,7 +10,7 @@ from ament_index_python.packages import get_package_share_directory
 # Import our custom message
 from threat_detector_msgs.msg import ThreatAlert
 
-# For YOLOv8, you might need to define class names
+# For YOLOv5, you might need to define class names
 # COCO_CLASSES = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', ...]
 
 class ThreatDetectionNode(Node):
@@ -29,7 +29,7 @@ class ThreatDetectionNode(Node):
         self.get_logger().info('Threat Detection Node has been started.')
 
         # --- CV Model Initialization ---
-        # You will need to download your YOLOv8n model (e.g., yolov8n.onnx)
+        # You will need to download your YOLOv5n model (e.g., yolov8n.onnx)
         # and place it in a 'models' directory within your package.
         # Example: /ros_ws/src/threat_detector/models/yolov8n.onnx
 
@@ -54,12 +54,12 @@ class ThreatDetectionNode(Node):
             self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
             self.get_logger().info("OpenCV DNN backend set to CUDA for GPU acceleration.")
 
-        self.input_width = 640 # YOLOv8 input size
-        self.input_height = 640 # YOLOv8 input size
+        self.input_width = 640 # YOLOv5 input size
+        self.input_height = 640 # YOLOv5 input size
         self.conf_threshold = 0.25 # Confidence threshold for detections
         self.nms_threshold = 0.45 # Non-maximum suppression threshold
 
-        # Define your class names for YOLOv8 (e.g., COCO classes)
+        # Define your class names for YOLOv5 (e.g., COCO classes)
         self.classes = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush']
         # --- End CV Model Initialization ---
 
@@ -81,7 +81,7 @@ class ThreatDetectionNode(Node):
         alert_message = "No threat detected."
 
         if self.net:
-            # --- Real CV Model Inference (YOLOv8 Example) ---
+            # --- Real CV Model Inference (YOLOv5 Example) ---
             # Preprocess the image for the model
             blob = cv2.dnn.blobFromImage(cv_image, 1/255.0, (self.input_width, self.input_height), swapRB=True, crop=False)
             self.net.setInput(blob)
@@ -145,7 +145,7 @@ class ThreatDetectionNode(Node):
             self.get_logger().info(f'Published Threat Alert: {alert_message}')
 
     def _postprocess(self, frame, outputs):
-        # This post-processing logic is specific to YOLOv8 output format
+        # This post-processing logic is specific to YOLOv5 output format
         # You might need to adjust it based on the exact model and OpenCV version
         
         h, w = frame.shape[:2]
@@ -153,31 +153,35 @@ class ThreatDetectionNode(Node):
         confidences = []
         class_ids = []
 
-        # Iterate through the outputs (usually one output layer for YOLOv8)
+        # Iterate through the outputs (usually one output layer for YOLOv5)
         for output in outputs:
-            # Each row is a detection: [box_x, box_y, box_w, box_h, object_conf, class_conf1, class_conf2, ...]
-            # YOLOv8 output format: [box_x, box_y, box_w, box_h, class_conf1, class_conf2, ...]
-            # The first 4 elements are box coordinates, the rest are class probabilities
-            
-            # Transpose output to get detections per row
-            output = output.transpose(1, 0)
+            # The output from YOLOv5 is (1, 25200, 85) for 80 classes.
+            # 25200 is the number of detections. 85 is cx, cy, w, h, obj_conf, and 80 class scores.
+            # We remove the first dimension (batch size)
+            detections = output[0]
 
-            for det in output:
-                # Extract confidence and class ID
-                scores = det[4:] # Class scores start from index 4
-                class_id = np.argmax(scores)
-                confidence = scores[class_id]
-
-                if confidence > self.conf_threshold:
-                    center_x, center_y, width, height = det[0:4] * np.array([w, h, w, h])
+            for det in detections:
+                # Extract object confidence and class scores
+                object_confidence = det[4]
+                
+                if object_confidence > self.conf_threshold:
+                    scores = det[5:] # Class scores start from index 5
+                    class_id = np.argmax(scores)
+                    class_confidence = scores[class_id]
                     
-                    # Convert to top-left corner (x, y, w, h)
-                    x = int(center_x - width / 2)
-                    y = int(center_y - height / 2)
+                    # The final confidence is the product of object confidence and class confidence
+                    confidence = object_confidence * class_confidence
                     
-                    boxes.append([x, y, int(width), int(height)])
-                    confidences.append(float(confidence))
-                    class_ids.append(class_id)
+                    if confidence > self.conf_threshold:
+                        center_x, center_y, width, height = det[0:4] * np.array([w, h, w, h])
+                        
+                        # Convert to top-left corner (x, y, w, h)
+                        x = int(center_x - width / 2)
+                        y = int(center_y - height / 2)
+                        
+                        boxes.append([x, y, int(width), int(height)])
+                        confidences.append(float(confidence))
+                        class_ids.append(class_id)
 
         # Apply Non-Maximum Suppression
         indices = cv2.dnn.NMSBoxes(boxes, confidences, self.conf_threshold, self.nms_threshold)
