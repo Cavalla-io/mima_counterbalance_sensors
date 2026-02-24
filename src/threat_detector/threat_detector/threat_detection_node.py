@@ -145,43 +145,34 @@ class ThreatDetectionNode(Node):
             self.get_logger().info(f'Published Threat Alert: {alert_message}')
 
     def _postprocess(self, frame, outputs):
-        # This post-processing logic is specific to YOLOv5 output format
-        # You might need to adjust it based on the exact model and OpenCV version
+        # This post-processing logic is specific to the YOLOv5 model output.
+        # It assumes that the objectness score is combined with the class scores.
         
         h, w = frame.shape[:2]
         boxes = []
         confidences = []
         class_ids = []
 
-        # Iterate through the outputs (usually one output layer for YOLOv5)
+        # Iterate through the outputs
         for output in outputs:
-            # The output from YOLOv5 is (1, 25200, 85) for 80 classes.
-            # 25200 is the number of detections. 85 is cx, cy, w, h, obj_conf, and 80 class scores.
-            # We remove the first dimension (batch size)
+            # Remove the batch dimension
             detections = output[0]
 
             for det in detections:
-                # Extract object confidence and class scores
-                object_confidence = det[4]
-                
-                if object_confidence > self.conf_threshold:
-                    scores = det[5:] # Class scores start from index 5
-                    class_id = np.argmax(scores)
-                    class_confidence = scores[class_id]
+                # Each detection is: [center_x, center_y, width, height, class1_score, class2_score, ...]
+                scores = det[4:]
+                class_id = np.argmax(scores)
+                confidence = scores[class_id]
+
+                if confidence > self.conf_threshold:
+                    center_x, center_y, width, height = det[0:4] * np.array([w, h, w, h])
                     
-                    # The final confidence is the product of object confidence and class confidence
-                    confidence = object_confidence * class_confidence
+                    x = int(center_x - width / 2)
+                    y = int(center_y - height / 2)
                     
-                    if confidence > self.conf_threshold:
-                        center_x, center_y, width, height = det[0:4] * np.array([w, h, w, h])
-                        
-                        # Convert to top-left corner (x, y, w, h)
-                        x = int(center_x - width / 2)
-                        y = int(center_y - height / 2)
-                        
-                        boxes.append([x, y, int(width), int(height)])
-                        confidences.append(float(confidence))
-                        class_ids.append(class_id)
+                    boxes.append([x, y, int(width), int(height)])
+                    confidences.append(float(confidence))
+                    class_ids.append(class_id)
 
         # Apply Non-Maximum Suppression
         indices = cv2.dnn.NMSBoxes(boxes, confidences, self.conf_threshold, self.nms_threshold)
