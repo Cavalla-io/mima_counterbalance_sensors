@@ -34,8 +34,7 @@ COPY src/ /ros_ws/src/
 
 
 # Build workspace
-RUN . /opt/ros/jazzy/setup.sh && \
-    colcon build --symlink-install
+RUN . /opt/ros/jazzy/setup.sh &&     PYTHON_EXECUTABLE=/opt/venv/bin/python3 colcon build --symlink-install
 
 # Copy launch script
 COPY launch.sh /launch.sh
