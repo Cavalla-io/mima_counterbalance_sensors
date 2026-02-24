@@ -1,13 +1,7 @@
 FROM ros:jazzy-ros-base
 
 # System dependencies
-RUN apt-get update && apt-get install -y \
-    tmux \
-    python3-pip \
-    ros-jazzy-nav2-bringup \
-    ros-jazzy-slam-toolbox \
-    ros-jazzy-robot-localization \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y     tmux     python3-pip     python3-venv     ros-jazzy-nav2-bringup     ros-jazzy-slam-toolbox     ros-jazzy-robot-localization     && rm -rf /var/lib/apt/lists/*
     
 RUN apt-get update && apt-get install -y \
     curl \
@@ -18,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     ros-jazzy-depthai-ros \
     && rm -rf /var/lib/apt/lists/*# # Python packages - Method 1: requirements.txt
 
-RUN pip3 install --no-cache-dir --break-system-packages numpy pyyaml pyserial
+
 
 
 
@@ -26,6 +20,12 @@ RUN pip3 install --no-cache-dir --break-system-packages numpy pyyaml pyserial
 
 
 # Copy tmux config
+# Setup Python virtual environment and install dependencies
+RUN python3 -m venv /opt/venv --system-site-packages
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir torch torchvision ultralytics typeguard numpy pyyaml pyserial
+
 COPY docker/.tmux.conf /root/.tmux.conf
 
 # Create workspace
