@@ -18,6 +18,5 @@ ENV/
 
 **/__pycache__/
 
-# YOLOv5/YOLOv8 export related files
-yolo_export/
-*.pt
+# macos devenv
+*.DS_Store
