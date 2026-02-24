@@ -54,8 +54,8 @@ class ThreatDetectionNode(Node):
             self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
             self.get_logger().info("OpenCV DNN backend set to CUDA for GPU acceleration.")
 
-        self.input_width = 640 # YOLOv5 input size
-        self.input_height = 640 # YOLOv5 input size
+        self.input_width = 640 # YOLOv8 input size
+        self.input_height = 480 # YOLOv8 input size
         self.conf_threshold = 0.25 # Confidence threshold for detections
         self.nms_threshold = 0.45 # Non-maximum suppression threshold
 
