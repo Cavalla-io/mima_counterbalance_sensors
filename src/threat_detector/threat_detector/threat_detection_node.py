@@ -2,10 +2,13 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-import cv2
-import numpy as np
 import os
 from ament_index_python.packages import get_package_share_directory
+import cv2 # Re-adding for placeholder
+import numpy as np # Re-adding for placeholder
+import torch
+from ultralytics import YOLO
+from PIL import Image # Keep for now, might be useful for cv_bridge or transforms
 
 # Import our custom message
 from threat_detector_msgs.msg import ThreatAlert
@@ -28,40 +31,30 @@ class ThreatDetectionNode(Node):
         self.bridge = CvBridge()
         self.get_logger().info('Threat Detection Node has been started.')
 
-        # --- CV Model Initialization ---
-        # You will need to download your YOLOv5n model (e.g., yolov8n.onnx)
-        # and place it in a 'models' directory within your package.
-        # Example: /ros_ws/src/threat_detector/models/yolov8n.onnx
+        # --- PyTorch Model Initialization ---
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.get_logger().info(f"Using device: {self.device}.")
 
-        model_name = 'yolov8m.onnx' # Replace with your model file name
-        model_dir = os.path.join(get_package_share_directory('threat_detector'), 'models')
-        model_path = os.path.join(model_dir, model_name)
-
-        self.net = None
-        if os.path.exists(model_path):
-            try:
-                self.net = cv2.dnn.readNet(model_path)
-                self.get_logger().info(f"CV model '{model_name}' loaded successfully from {model_path}.")
-            except Exception as e:
-                self.get_logger().error(f"Failed to load CV model '{model_name}': {e}")
-        else:
-            self.get_logger().warn(f"CV model '{model_name}' not found at {model_path}. Using placeholder detection.")
+        # Load YOLOv8 model
+        # Assuming yolov8m.pt is in the models directory
+        model_pt_path = os.path.join(get_package_share_directory('threat_detector'), 'models', 'yolov8m.pt')
         
-        # Set preferred backend and target for OpenCV DNN
-        # For Jetson, use CUDA backend and CUDA target for GPU acceleration
-        if self.net:
-            self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
-            self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
-            self.get_logger().info("OpenCV DNN backend set to CUDA for GPU acceleration.")
+        try:
+            # Load model using ultralytics YOLO class
+            self.model = YOLO(model_pt_path) # This will load the local .pt file
+            self.model.to(self.device)
+            self.model.eval() # Set model to evaluation mode
+            self.get_logger().info(f"PyTorch YOLOv8m model loaded successfully on {self.device}.")
+        except Exception as e:
+            self.get_logger().error(f"Failed to load PyTorch YOLOv8m model: {e}")
+            self.model = None # Ensure model is None if loading fails
 
-        self.input_width = 640 # YOLOv8 input size
-        self.input_height = 480 # YOLOv8 input size
         self.conf_threshold = 0.25 # Confidence threshold for detections
-        self.nms_threshold = 0.45 # Non-maximum suppression threshold
-
-        # Define your class names for YOLOv5 (e.g., COCO classes)
+        # NMS is handled internally by YOLOv8 model's predict method, so nms_threshold is not directly used here
+        
+        # Define your class names for YOLOv8 (e.g., COCO classes)
         self.classes = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush']
-        # --- End CV Model Initialization ---
+        # --- End PyTorch Model Initialization ---
 
 
     def image_callback(self, msg):
@@ -85,17 +78,14 @@ class ThreatDetectionNode(Node):
         bbox_xywh = []
         alert_message = "No threat detected."
 
-        if self.net:
-            # --- Real CV Model Inference (YOLOv5 Example) ---
-            # Preprocess the image for the model
-            blob = cv2.dnn.blobFromImage(cv_image, 1/255.0, (self.input_width, self.input_height), swapRB=True, crop=False)
-            self.net.setInput(blob)
-            
-            # Run inference
-            outputs = self.net.forward(self.net.getUnconnectedOutLayersNames())
+        if self.model:
+            # --- Real PyTorch Model Inference (YOLOv8 Example) ---
+            # The YOLO model's predict method handles preprocessing, inference, and NMS
+            # It expects a numpy array (BGR or RGB) or PIL Image
+            results = self.model.predict(source=cv_image, conf=self.conf_threshold, verbose=False)
             
             # Post-process detections
-            boxes, confidences, class_ids = self._postprocess(cv_image, outputs)
+            boxes, confidences, class_ids = self._postprocess(cv_image, results)
 
             if len(boxes) > 0:
                 # For simplicity, let's just take the first detected object as the "threat"
@@ -111,10 +101,12 @@ class ThreatDetectionNode(Node):
                 threat_detected = True
                 alert_message = f"Threat detected: {object_name} with confidence {confidence:.2f} at {bbox_xywh}"
                 self.get_logger().warn(alert_message)
-            # --- End Real CV Model Inference ---
+            # --- End Real PyTorch Model Inference ---
         else:
+            self.get_logger().warn("PyTorch model not loaded. Using placeholder detection.")
             # --- Placeholder for your Computer Vision Model (Simulated) ---
             # This is the previous red detection logic, kept as a fallback if model not loaded
+            # Note: cv2 and numpy are still needed for this placeholder
             hsv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
             lower_red = np.array([0, 100, 100])
             upper_red = np.array([10, 255, 255])
@@ -149,80 +141,42 @@ class ThreatDetectionNode(Node):
             self.publisher_.publish(alert_msg)
             self.get_logger().info(f'Published Threat Alert: {alert_message}')
 
-    def _postprocess(self, frame, outputs):
-        # This post-processing logic is specific to the YOLOv8 model output.
-        # It assumes that the output format is [cx, cy, w, h, class_scores...].
+    def _postprocess(self, original_cv_image, results):
+        # This post-processing logic handles the Results object from ultralytics YOLOv8.
+        # The predict method already performs NMS and scaling.
         
-        h, w = frame.shape[:2]
         boxes = []
         confidences = []
         class_ids = []
 
-        # Iterate through the outputs
-        for output in outputs:
-            output_tensor = np.squeeze(output) # Remove batch dimension
+        # Iterate through the results (one Results object per image in batch)
+        for r in results:
+            # r.boxes contains detection bounding boxes and scores
+            # r.boxes.xywhn: normalized xywh boxes
+            # r.boxes.xyxy: absolute xyxy boxes
+            # r.boxes.conf: confidence scores
+            # r.boxes.cls: class IDs
 
-            # Determine if transpose is needed based on typical YOLO output shapes
-            # If the number of rows is significantly smaller than the number of columns,
-            # it's likely (channels, detections) and needs transposing to (detections, channels).
-            # A typical YOLO output has (num_detections, 5 + num_classes).
-            # 5 + num_classes is usually around 80-100, while num_detections is in the thousands.
-            if output_tensor.shape[0] < output_tensor.shape[1]:
-                detections = output_tensor.transpose(1, 0)
-            else:
-                detections = output_tensor
-
-            for det in detections: # det has shape (84,)
-                # Ensure detection has enough elements for unpacking (cx, cy, w, h, and at least one class score)
-                if len(det) < 5:
-                    continue
-
-                # For YOLOv8, det[4:] are the class scores directly.
-                # There is no separate objectness confidence.
-                class_scores = det[4:]
-
-                # Ensure class_scores is not empty
-                if class_scores.size == 0:
-                    continue
-
-                # Manually find the index of the maximum score
-                max_score = -1.0
-                class_id = -1
-                for i in range(class_scores.size):
-                    if class_scores[i] > max_score:
-                        max_score = class_scores[i]
-                        class_id = i
-                
-                # If no valid class_id was found (e.g., all scores were negative or class_scores was empty)
-                if class_id == -1:
-                    continue
-
-                confidence = max_score # Confidence is simply the max class score
-
-                if confidence > self.conf_threshold:
-                    center_x, center_y, width, height = det[0:4] * np.array([w, h, w, h])
+            if r.boxes is not None:
+                for i in range(len(r.boxes)):
+                    conf = r.boxes.conf[i].item()
+                    cls = r.boxes.cls[i].item()
                     
-                    x = int(center_x - width / 2)
-                    y = int(center_y - height / 2)
-                    
-                    boxes.append([x, y, int(width), int(height)])
-                    confidences.append(confidence)
-                    class_ids.append(class_id)
+                    # Filter by confidence threshold
+                    if conf > self.conf_threshold:
+                        # Get bounding box in xyxy format (absolute coordinates)
+                        x1, y1, x2, y2 = r.boxes.xyxy[i].tolist()
 
-        # Apply Non-Maximum Suppression
-        if not boxes: # If no boxes passed initial confidence threshold, skip NMS
-            return [], [], []
+                        # Convert to (x, y, w, h) format
+                        box_x = int(x1)
+                        box_y = int(y1)
+                        box_w = int(x2 - x1)
+                        box_h = int(y2 - y1)
 
-        indices = cv2.dnn.NMSBoxes(boxes, confidences, self.conf_threshold, self.nms_threshold)
-        # Check if any detections remain after NMS
-        if indices.size > 0:
-            indices = indices.flatten()
-            boxes = [boxes[i] for i in indices]
-            confidences = [confidences[i] for i in indices]
-            class_ids = [class_ids[i] for i in indices]
-        else:
-            boxes, confidences, class_ids = [], [], []
-
+                        boxes.append([box_x, box_y, box_w, box_h])
+                        confidences.append(conf)
+                        class_ids.append(int(cls))
+        
         return boxes, confidences, class_ids
 
 

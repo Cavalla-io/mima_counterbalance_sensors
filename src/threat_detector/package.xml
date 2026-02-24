@@ -16,6 +16,9 @@
   <depend>python-opencv</depend>
   <depend>std_msgs</depend>
   <depend>threat_detector_msgs</depend>
+  <depend>torch</depend>
+  <depend>torchvision</depend>
+  <depend>ultralytics</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
