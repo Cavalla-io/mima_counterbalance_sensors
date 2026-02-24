@@ -33,7 +33,7 @@ class ThreatDetectionNode(Node):
         # and place it in a 'models' directory within your package.
         # Example: /ros_ws/src/threat_detector/models/yolov8n.onnx
 
-        model_name = 'yolov5s6_640_ti_lite_best.optimized.onnx' # Replace with your model file name
+        model_name = 'yolov5l.onnx' # Replace with your model file name
         model_dir = os.path.join(get_package_share_directory('threat_detector'), 'models')
         model_path = os.path.join(model_dir, model_name)
 
