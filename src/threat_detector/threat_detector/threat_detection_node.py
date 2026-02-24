@@ -73,6 +73,11 @@ class ThreatDetectionNode(Node):
             self.get_logger().error(f"CvBridge Error: {e}")
             return
 
+        # Check for empty/invalid image
+        if cv_image.size == 0:
+            self.get_logger().warn("Received an empty image, skipping processing.")
+            return
+
         (h, w) = cv_image.shape[:2]
         threat_detected = False
         object_name = "no_threat"
