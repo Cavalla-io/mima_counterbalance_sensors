@@ -160,9 +160,17 @@ class ThreatDetectionNode(Node):
 
         # Iterate through the outputs
         for output in outputs:
-            # Process output from (batch, channels, anchors) to (anchors, channels)
-            output_tensor = np.squeeze(output) # Shape becomes (channels, anchors)
-            detections = output_tensor.transpose(1, 0) # Shape becomes (anchors, channels)
+            output_tensor = np.squeeze(output) # Remove batch dimension
+
+            # Determine if transpose is needed based on typical YOLO output shapes
+            # If the number of rows is significantly smaller than the number of columns,
+            # it's likely (channels, detections) and needs transposing to (detections, channels).
+            # A typical YOLO output has (num_detections, 5 + num_classes).
+            # 5 + num_classes is usually around 80-100, while num_detections is in the thousands.
+            if output_tensor.shape[0] < output_tensor.shape[1]:
+                detections = output_tensor.transpose(1, 0)
+            else:
+                detections = output_tensor
 
             for det in detections:
                 # Ensure detection has enough elements for unpacking
