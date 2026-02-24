@@ -184,8 +184,19 @@ class ThreatDetectionNode(Node):
                 if class_scores.size == 0:
                     continue
 
-                class_id = np.argmax(class_scores)
-                class_conf = class_scores[class_id]
+                # Manually find the index of the maximum score to bypass potential np.argmax issues
+                max_score = -1.0
+                class_id = -1
+                for i in range(class_scores.size):
+                    if class_scores[i] > max_score:
+                        max_score = class_scores[i]
+                        class_id = i
+                
+                # If no valid class_id was found (e.g., all scores were negative or class_scores was empty)
+                if class_id == -1:
+                    continue
+
+                class_conf = max_score # The confidence of the highest scoring class
                 confidence = float(object_conf * class_conf)
 
                 if confidence > self.conf_threshold:
