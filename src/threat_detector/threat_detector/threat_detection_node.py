@@ -33,7 +33,7 @@ class ThreatDetectionNode(Node):
         # and place it in a 'models' directory within your package.
         # Example: /ros_ws/src/threat_detector/models/yolov8n.onnx
 
-        model_name = 'yolov5l.onnx' # Replace with your model file name
+        model_name = 'yolov8m.onnx' # Replace with your model file name
         model_dir = os.path.join(get_package_share_directory('threat_detector'), 'models')
         model_path = os.path.join(model_dir, model_name)
 
@@ -150,8 +150,8 @@ class ThreatDetectionNode(Node):
             self.get_logger().info(f'Published Threat Alert: {alert_message}')
 
     def _postprocess(self, frame, outputs):
-        # This post-processing logic is specific to the YOLOv5 model output.
-        # It assumes that the output format is [cx, cy, w, h, obj_conf, class_scores...].
+        # This post-processing logic is specific to the YOLOv8 model output.
+        # It assumes that the output format is [cx, cy, w, h, class_scores...].
         
         h, w = frame.shape[:2]
         boxes = []
@@ -172,19 +172,20 @@ class ThreatDetectionNode(Node):
             else:
                 detections = output_tensor
 
-            for det in detections:
-                # Ensure detection has enough elements for unpacking
-                if len(det) < 6: # Need at least cx, cy, w, h, obj_conf, and one class score
+            for det in detections: # det has shape (84,)
+                # Ensure detection has enough elements for unpacking (cx, cy, w, h, and at least one class score)
+                if len(det) < 5:
                     continue
 
-                object_conf = det[4]
-                class_scores = det[5:]
+                # For YOLOv8, det[4:] are the class scores directly.
+                # There is no separate objectness confidence.
+                class_scores = det[4:]
 
                 # Ensure class_scores is not empty
                 if class_scores.size == 0:
                     continue
 
-                # Manually find the index of the maximum score to bypass potential np.argmax issues
+                # Manually find the index of the maximum score
                 max_score = -1.0
                 class_id = -1
                 for i in range(class_scores.size):
@@ -196,8 +197,7 @@ class ThreatDetectionNode(Node):
                 if class_id == -1:
                     continue
 
-                class_conf = max_score # The confidence of the highest scoring class
-                confidence = float(object_conf * class_conf)
+                confidence = max_score # Confidence is simply the max class score
 
                 if confidence > self.conf_threshold:
                     center_x, center_y, width, height = det[0:4] * np.array([w, h, w, h])
@@ -206,7 +206,7 @@ class ThreatDetectionNode(Node):
                     y = int(center_y - height / 2)
                     
                     boxes.append([x, y, int(width), int(height)])
-                    confidences.append(confidence) # Use the combined confidence
+                    confidences.append(confidence)
                     class_ids.append(class_id)
 
         # Apply Non-Maximum Suppression
