@@ -210,6 +210,9 @@ class ThreatDetectionNode(Node):
                     class_ids.append(class_id)
 
         # Apply Non-Maximum Suppression
+        if not boxes: # If no boxes passed initial confidence threshold, skip NMS
+            return [], [], []
+
         indices = cv2.dnn.NMSBoxes(boxes, confidences, self.conf_threshold, self.nms_threshold)
         # Check if any detections remain after NMS
         if indices.size > 0:
