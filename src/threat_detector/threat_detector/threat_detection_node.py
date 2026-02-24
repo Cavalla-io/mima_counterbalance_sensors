@@ -151,7 +151,7 @@ class ThreatDetectionNode(Node):
 
     def _postprocess(self, frame, outputs):
         # This post-processing logic is specific to the YOLOv5 model output.
-        # It assumes that the objectness score is combined with the class scores.
+        # It assumes that the output format is [cx, cy, w, h, obj_conf, class_scores...].
         
         h, w = frame.shape[:2]
         boxes = []
@@ -160,14 +160,25 @@ class ThreatDetectionNode(Node):
 
         # Iterate through the outputs
         for output in outputs:
-            # Remove the batch dimension
-            detections = output[0]
+            # Process output from (batch, channels, anchors) to (anchors, channels)
+            output_tensor = np.squeeze(output) # Shape becomes (channels, anchors)
+            detections = output_tensor.transpose(1, 0) # Shape becomes (anchors, channels)
 
             for det in detections:
-                # Each detection is: [center_x, center_y, width, height, class1_score, class2_score, ...]
-                scores = det[4:]
-                class_id = np.argmax(scores)
-                confidence = scores[class_id]
+                # Ensure detection has enough elements for unpacking
+                if len(det) < 6: # Need at least cx, cy, w, h, obj_conf, and one class score
+                    continue
+
+                object_conf = det[4]
+                class_scores = det[5:]
+
+                # Ensure class_scores is not empty
+                if class_scores.size == 0:
+                    continue
+
+                class_id = np.argmax(class_scores)
+                class_conf = class_scores[class_id]
+                confidence = float(object_conf * class_conf)
 
                 if confidence > self.conf_threshold:
                     center_x, center_y, width, height = det[0:4] * np.array([w, h, w, h])
@@ -176,7 +187,7 @@ class ThreatDetectionNode(Node):
                     y = int(center_y - height / 2)
                     
                     boxes.append([x, y, int(width), int(height)])
-                    confidences.append(float(confidence))
+                    confidences.append(confidence) # Use the combined confidence
                     class_ids.append(class_id)
 
         # Apply Non-Maximum Suppression
