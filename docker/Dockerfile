@@ -31,7 +31,7 @@ COPY docker/.tmux.conf /root/.tmux.conf
 # Create workspace
 WORKDIR /ros_ws
 COPY src/ /ros_ws/src/
-COPY src/threat_detector/models /ros_ws/src/threat_detector/models
+
 
 # Build workspace
 RUN . /opt/ros/jazzy/setup.sh && \
