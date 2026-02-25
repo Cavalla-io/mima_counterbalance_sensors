@@ -22,9 +22,9 @@ RUN apt-get update && apt-get install -y \
 # Copy tmux config
 # Setup Python virtual environment and install dependencies
 RUN python3 -m venv /opt/venv --system-site-packages
-ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --upgrade pip
-RUN pip install --no-cache-dir torch torchvision ultralytics typeguard "numpy==1.26.4" pyyaml pyserial
+
+RUN /opt/venv/bin/pip install --upgrade pip
+RUN /opt/venv/bin/pip install --no-cache-dir torch torchvision ultralytics "numpy==1.26.4"
 
 COPY docker/.tmux.conf /root/.tmux.conf
 
@@ -34,7 +34,7 @@ COPY src/ /ros_ws/src/
 
 
 # Build workspace
-RUN . /opt/ros/jazzy/setup.sh &&     PYTHON_EXECUTABLE=/opt/venv/bin/python3 colcon build --symlink-install
+RUN . /opt/ros/jazzy/setup.sh &&     /opt/venv/bin/python3 -m colcon build --symlink-install
 
 # Copy launch script
 COPY launch.sh /launch.sh
