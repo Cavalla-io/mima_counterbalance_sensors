@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y \
 RUN python3 -m venv /opt/venv --system-site-packages
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --upgrade pip
-RUN pip install --no-cache-dir torch torchvision ultralytics typeguard numpy pyyaml pyserial
+RUN pip install --no-cache-dir torch torchvision ultralytics typeguard "numpy==1.26.4" pyyaml pyserial
 
 COPY docker/.tmux.conf /root/.tmux.conf
 
