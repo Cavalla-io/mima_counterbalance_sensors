@@ -4,11 +4,20 @@ set -e
 source /opt/ros/jazzy/setup.bash
 source /ros_ws/install/setup.bash
 
+# Capture the PYTHONPATH set by ROS setup scripts
+ROS_PYTHONPATH="$PYTHONPATH"
+
 tmux new-session -d -s robot
 
-# Control
+# Launch inductive_sensor in the default ROS Python environment
 tmux rename-window -t robot:0 'inductive launch'
 tmux send-keys -t robot:0 'ros2 run inductive_sensor ime12_serial_node.py' Enter
+
+# Launch threat_detector using the virtual environment's Python
+# Explicitly set PYTHONPATH for the venv's Python
+tmux new-window -t robot:1 -n 'threat_detector launch'
+tmux send-keys -t robot:1 "bash -c 'source /opt/ros/jazzy/setup.bash && source /ros_ws/install/setup.bash && PYTHONPATH=\"/opt/venv/lib/python3.12/site-packages:$PYTHONPATH\" /opt/venv/bin/python3 /ros_ws/install/threat_detector/lib/threat_detector/threat_detection_node'" Enter
+
 
 tmux attach -t robot
 ```
