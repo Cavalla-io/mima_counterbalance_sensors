@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image as SensorImage
 from cv_bridge import CvBridge
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -21,7 +21,7 @@ class ThreatDetectionNode(Node):
     def __init__(self):
         super().__init__('threat_detection_node')
         self.subscription = self.create_subscription(
-            Image,
+            SensorImage,
             '/oak/rgb/image',  # Topic from luxonis_cam_pipeline
             self.image_callback,
             10)
