@@ -20,12 +20,26 @@ class ThreatDetectionNode(Node):
 
     def __init__(self):
         super().__init__('threat_detection_node')
-        self.subscription = self.create_subscription(
+        self.subscription_front_low = self.create_subscription(
             SensorImage,
-            '/oak/rgb/image',  # Topic from luxonis_cam_pipeline
+            '/front_low/rgb/image',
             self.image_callback,
             10)
-        self.subscription  # prevent unused variable warning
+        self.subscription_front_low  # prevent unused variable warning
+
+        self.subscription_right = self.create_subscription(
+            SensorImage,
+            '/right/rgb/image',
+            self.image_callback,
+            10)
+        self.subscription_right  # prevent unused variable warning
+
+        self.subscription_left = self.create_subscription(
+            SensorImage,
+            '/left/rgb/image',
+            self.image_callback,
+            10)
+        self.subscription_left  # prevent unused variable warning
 
         self.publisher_ = self.create_publisher(ThreatAlert, 'threat_alerts', 10)
         self.bridge = CvBridge()
