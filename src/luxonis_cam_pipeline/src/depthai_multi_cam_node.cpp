@@ -8,6 +8,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
+#include "sensor_msgs/msg/camera_info.hpp"
 #include "depthai/depthai.hpp"
 
 using namespace std::chrono_literals;
@@ -69,6 +70,36 @@ private:
     // We only resolve the topic name once, simply
     std::string topic = topic_prefix_ + "/rgb/image";
     pub_ = create_publisher<sensor_msgs::msg::Image>(topic, 10);
+    std::string cam_info_topic = topic_prefix_ + "/rgb/camera_info";
+    pub_cam_info_ = create_publisher<sensor_msgs::msg::CameraInfo>(cam_info_topic, 10);
+
+    // Get camera intrinsics
+    auto calibData = device_->readCalibration();
+    auto intrinsics = calibData.getCameraIntrinsics(dai::CameraBoardSocket::CAM_A, rgb_w_, rgb_h_);
+    cam_info_msg_.width = rgb_w_;
+    cam_info_msg_.height = rgb_h_;
+    cam_info_msg_.k[0] = intrinsics[0][0];
+    cam_info_msg_.k[1] = 0.0;
+    cam_info_msg_.k[2] = intrinsics[0][2];
+    cam_info_msg_.k[3] = 0.0;
+    cam_info_msg_.k[4] = intrinsics[1][1];
+    cam_info_msg_.k[5] = intrinsics[1][2];
+    cam_info_msg_.k[6] = 0.0;
+    cam_info_msg_.k[7] = 0.0;
+    cam_info_msg_.k[8] = 1.0;
+    cam_info_msg_.p[0] = cam_info_msg_.k[0];
+    cam_info_msg_.p[1] = 0.0;
+    cam_info_msg_.p[2] = cam_info_msg_.k[2];
+    cam_info_msg_.p[3] = 0.0;
+    cam_info_msg_.p[4] = 0.0;
+    cam_info_msg_.p[5] = cam_info_msg_.k[4];
+    cam_info_msg_.p[6] = cam_info_msg_.k[5];
+    cam_info_msg_.p[7] = 0.0;
+    cam_info_msg_.p[8] = 0.0;
+    cam_info_msg_.p[9] = 0.0;
+    cam_info_msg_.p[10] = 1.0;
+    cam_info_msg_.p[11] = 0.0;
+
 
     // Get output queue: 
     // maxSize=8 (buffer more frames to survive network jitter)
@@ -96,7 +127,8 @@ private:
     // Zero-copy (mostly) construction of ROS message
     auto msg = std::make_unique<sensor_msgs::msg::Image>();
     
-    msg->header.stamp = this->now();
+    auto now = this->now();
+    msg->header.stamp = now;
     msg->header.frame_id = "oak_rgb_frame";
     msg->height = frame.getHeight();
     msg->width = frame.getWidth();
@@ -109,6 +141,10 @@ private:
     const auto& data = frame.getData();
     msg->data.assign(data.begin(), data.end());
 
+    cam_info_msg_.header.stamp = now;
+    cam_info_msg_.header.frame_id = "oak_rgb_frame";
+    pub_cam_info_->publish(cam_info_msg_);
+
     pub_->publish(std::move(msg));
   }
 
@@ -117,6 +153,8 @@ private:
   std::shared_ptr<dai::DataOutputQueue> q_;
   
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub_;
+  rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr pub_cam_info_;
+  sensor_msgs::msg::CameraInfo cam_info_msg_;
   std::thread thread_;
 
   // Params

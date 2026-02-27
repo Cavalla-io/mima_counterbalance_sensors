@@ -8,6 +8,7 @@ import os
 def generate_launch_description():
     # Get package share directories
     luxonis_cam_pipeline_dir = get_package_share_directory('luxonis_cam_pipeline')
+    robot_bringup_dir = get_package_share_directory('robot_bringup')
     
     # Launch Luxonis Camera Pipeline
     cam_launch = IncludeLaunchDescription(
@@ -38,9 +39,30 @@ def generate_launch_description():
         output='screen'
     )
 
+    # Static transform for the camera
+    static_transform_publisher_node = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='static_transform_publisher_oak',
+        arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'oak_rgb_frame']
+    )
+
+    # Launch RTAB-Map
+    rtabmap_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                robot_bringup_dir,
+                'launch',
+                'rtabmap.launch.py'
+            )
+        )
+    )
+
     return LaunchDescription([
         cam_launch,
         threat_detector_node,
         inductive_sensor_node,
+        static_transform_publisher_node,
+        rtabmap_launch,
         # Add other nodes here as needed (e.g., pull_wire_encoder, turn_assist)
     ])

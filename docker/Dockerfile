@@ -1,8 +1,17 @@
-FROM ros:jazzy-ros-base
+FROM nvcr.io/nvidia/pytorch:23.09-py3
 
-# System dependencies
-RUN apt-get update && apt-get install -y     tmux     python3-pip     python3-venv     ros-jazzy-nav2-bringup     ros-jazzy-slam-toolbox     ros-jazzy-robot-localization     && rm -rf /var/lib/apt/lists/*
-    
+# Install ROS Jazzy
+RUN apt-get update && apt-get install -y locales
+RUN locale-gen en_US en_US.UTF-8
+RUN update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+ENV LANG en_US.UTF-8
+
+RUN apt-get update && apt-get install -y curl gnupg2 lsb-release
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+RUN apt-get update && apt-get install -y     ros-jazzy-ros-base     tmux     python3-pip     python3-serial     ros-jazzy-nav2-bringup     ros-jazzy-slam-toolbox     ros-jazzy-robot-localization     ros-jazzy-rtabmap-ros     && rm -rf /var/lib/apt/lists/*
+
 RUN apt-get update && apt-get install -y \
     curl \
     gnupg \
@@ -10,21 +19,10 @@ RUN apt-get update && apt-get install -y \
 
 RUN apt-get update && apt-get install -y \
     ros-jazzy-depthai-ros \
-    && rm -rf /var/lib/apt/lists/*# # Python packages - Method 1: requirements.txt
+    && rm -rf /var/lib/apt/lists/*
 
-
-
-
-
-
-
-
-# Copy tmux config
-# Setup Python virtual environment and install dependencies
-RUN python3 -m venv /opt/venv --system-site-packages
-
-RUN /opt/venv/bin/pip install --upgrade pip
-RUN /opt/venv/bin/pip install --no-cache-dir torch torchvision ultralytics "numpy==1.26.4"
+# Install ultralytics (PyTorch and torchvision are already in the base image)
+RUN pip install --no-cache-dir ultralytics "numpy==1.26.4"
 
 COPY docker/.tmux.conf /root/.tmux.conf
 
@@ -34,7 +32,7 @@ COPY src/ /ros_ws/src/
 
 
 # Build workspace
-RUN . /opt/ros/jazzy/setup.sh &&     /opt/venv/bin/python3 -m colcon build --symlink-install
+RUN . /opt/ros/jazzy/setup.sh &&     python3 -m colcon build --symlink-install
 
 # Copy launch script
 COPY launch.sh /launch.sh
@@ -47,3 +45,4 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
 
 ENTRYPOINT ["/launch.sh"]
 COPY docker/fastrtps.xml /ros_ws/fastrtps.xml
+
