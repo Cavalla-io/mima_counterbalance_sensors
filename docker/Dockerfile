@@ -1,49 +1,49 @@
 FROM ros:jazzy-ros-base
 
-# System dependencies
-RUN apt-get update && apt-get install -y     tmux     python3-pip     python3-venv     ros-jazzy-nav2-bringup     ros-jazzy-slam-toolbox     ros-jazzy-robot-localization     && rm -rf /var/lib/apt/lists/*
-    
+# -----------------------------
+# System / ROS dependencies
+# -----------------------------
 RUN apt-get update && apt-get install -y \
+    tmux \
+    python3-venv \
+    ros-jazzy-nav2-bringup \
+    ros-jazzy-slam-toolbox \
+    ros-jazzy-robot-localization \
+    ros-jazzy-depthai-ros \
     curl \
     gnupg \
-    && curl -fsSL https://raw.githubusercontent.com/luxonis/depthai-ros/main/install_deps.sh | bash
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y \
-    ros-jazzy-depthai-ros \
-    && rm -rf /var/lib/apt/lists/*# # Python packages - Method 1: requirements.txt
+# DepthAI deps (external script – keep but be aware it's fragile)
+RUN curl -fsSL https://raw.githubusercontent.com/luxonis/depthai-ros/main/install_deps.sh | bash
 
+# -----------------------------
+# ML-only virtual environment
+# (runtime only)
+# -----------------------------
+RUN python3 -m venv /opt/threat_venv && \
+    /opt/threat_venv/bin/pip install --upgrade pip && \
+    /opt/threat_venv/bin/pip install --no-cache-dir \
+        torch torchvision ultralytics \
+        "numpy==1.26.4"
 
-
-
-
-
-
-
-# Copy tmux config
-# Setup Python virtual environment and install dependencies
-RUN python3 -m venv /opt/venv --system-site-packages
-
-RUN /opt/venv/bin/pip install --upgrade pip
-RUN /opt/venv/bin/pip install --no-cache-dir torch torchvision ultralytics "numpy==1.26.4"
-
-COPY docker/.tmux.conf /root/.tmux.conf
-
-# Create workspace
+# -----------------------------
+# ROS workspace
+# -----------------------------
 WORKDIR /ros_ws
-COPY src/ /ros_ws/src/
+COPY src/ src/
 
+# IMPORTANT: build with system Python
+RUN . /opt/ros/jazzy/setup.sh && \
+    colcon build --symlink-install
 
-# Build workspace
-RUN . /opt/ros/jazzy/setup.sh &&     /opt/venv/bin/python3 -m colcon build --symlink-install
-
-# Copy launch script
+# -----------------------------
+# Runtime
+# -----------------------------
+COPY docker/.tmux.conf /root/.tmux.conf
 COPY launch.sh /launch.sh
 RUN chmod +x /launch.sh
 
-# Check if any tmux session exists
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-  CMD tmux list-sessions 2>/dev/null || exit 1
-
+COPY docker/fastrtps.xml /ros_ws/fastrtps.xml
 
 ENTRYPOINT ["/launch.sh"]
-COPY docker/fastrtps.xml /ros_ws/fastrtps.xml

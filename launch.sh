@@ -1,36 +1,30 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
+# ROS environment
 source /opt/ros/jazzy/setup.bash
 source /ros_ws/install/setup.bash
 
-# Capture the PYTHONPATH set by ROS setup scripts
-ROS_PYTHONPATH="$PYTHONPATH"
+# Sanity check
+if [ ! -x /opt/threat_venv/bin/python3 ]; then
+  echo "ERROR: /opt/threat_venv not found"
+  exit 1
+fi
 
+# Restart tmux session cleanly
+tmux has-session -t robot 2>/dev/null && tmux kill-session -t robot
 tmux new-session -d -s robot
 
-# Launch inductive_sensor in the default ROS Python environment
-tmux rename-window -t robot:0 'inductive launch'
-tmux send-keys -t robot:0 'ros2 run inductive_sensor ime12_serial_node.py' Enter
+# ROS-native node
+tmux rename-window -t robot:0 'inductive'
+tmux send-keys -t robot:0 \
+  'exec ros2 run inductive_sensor ime12_serial_node' Enter
 
-# Launch threat_detector using the virtual environment's Python
-# Explicitly set PYTHONPATH for the venv's Python
-tmux new-window -t robot:1 -n 'threat_detector launch'
-tmux send-keys -t robot:1 "bash -c 'source /opt/ros/jazzy/setup.bash && source /ros_ws/install/setup.bash && PYTHONPATH=\"/opt/venv/lib/python3.12/site-packages:$PYTHONPATH\" /opt/venv/bin/python3 /ros_ws/install/threat_detector/lib/threat_detector/threat_detection_node'" Enter
+# ML node
+tmux new-window -t robot:1 -n 'threat_detector'
+tmux send-keys -t robot:1 \
+  "exec /opt/threat_venv/bin/python3 \
+   \$(ros2 pkg prefix threat_detector)/lib/threat_detector/threat_detection_node" Enter
 
-
-tmux attach -t robot
-```
-
-**docker/.tmux.conf:**
-```
-set -g mouse on
-set -g history-limit 10000
-set -g default-terminal "screen-256color"
-bind | split-window -h
-bind - split-window -v
-bind r source-file ~/.tmux.conf \; display "Reloaded!"
-set -g status-bg black
-set -g status-fg white
-set -g status-left '#[fg=green]#S '
-set -g status-right '#[fg=yellow]%H:%M'
+# Attach for interactive use
+exec tmux attach -t robot
