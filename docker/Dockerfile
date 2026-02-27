@@ -20,11 +20,11 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     && rm -rf /var/lib/apt/lists/*
 
-# System Python dependencies for ROS-native nodes
-RUN pip3 install --no-cache-dir pyyaml python-can pyserial
-
 # DepthAI deps (external script – keep but be aware it's fragile)
 RUN curl -fsSL https://raw.githubusercontent.com/luxonis/depthai-ros/main/install_deps.sh | bash
+
+# System Python dependencies for ROS-native nodes
+RUN pip3 install --no-cache-dir pyyaml python-can pyserial
 
 # -----------------------------
 # ML-only virtual environment
@@ -32,13 +32,13 @@ RUN curl -fsSL https://raw.githubusercontent.com/luxonis/depthai-ros/main/instal
 # -----------------------------
 # Split steps for better error visibility
 RUN python3 -m venv /opt/threat_venv
-RUN /opt/threat_venv/bin/pip install --upgrade pip
+RUN /opt/threat_venv/bin/python3 -m pip install --upgrade pip setuptools wheel
 
 # Install Jetson-compatible PyTorch + ML stack
-# NOTE: Replace URL/version below with your JetPack version if needed
-RUN /opt/threat_venv/bin/pip install --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v51 \
-    torch==2.1.0+nv23.05 torchvision==0.16.0+nv23.05 \
-    && /opt/threat_venv/bin/pip install --no-cache-dir ultralytics numpy==1.26.4
+RUN /opt/threat_venv/bin/python3 -m pip install --no-cache-dir \
+      --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v51 \
+      torch torchvision && \
+    /opt/threat_venv/bin/pip install --no-cache-dir ultralytics numpy==1.26.4
 
 # Sanity check: venv exists
 RUN [ -x /opt/threat_venv/bin/python3 ] || (echo "VENV not created" && exit 1)
