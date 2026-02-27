@@ -10,8 +10,10 @@ RUN apt-get update && apt-get install -y \
     tmux \
     python3-pip \
     python3-venv \
-    python3-distutils \
     build-essential \
+    python3-yaml \
+    python3-can \ 
+    python3-serial \
     ros-jazzy-nav2-bringup \
     ros-jazzy-slam-toolbox \
     ros-jazzy-robot-localization \
