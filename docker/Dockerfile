@@ -12,10 +12,8 @@ RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/r
 
 RUN apt-get update && apt-get install -y     ros-jazzy-ros-base     tmux     python3-pip     python3-serial     ros-jazzy-nav2-bringup     ros-jazzy-slam-toolbox     ros-jazzy-robot-localization     ros-jazzy-rtabmap-ros     && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y \
-    curl \
-    gnupg \
-    && curl -fsSL https://raw.githubusercontent.com/luxonis/depthai-ros/main/install_deps.sh | bash
+# Install depthai-ros dependencies (curl and gnupg are already installed)
+RUN apt-get update && apt-get install -y     && curl -fsSL https://raw.githubusercontent.com/luxonis/depthai-ros/main/install_deps.sh | bash
 
 RUN apt-get update && apt-get install -y \
     ros-jazzy-depthai-ros \
