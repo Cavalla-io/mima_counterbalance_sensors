@@ -25,9 +25,6 @@ RUN apt-get update && apt-get install -y \
 # DepthAI deps (external script – keep but be aware it's fragile)
 RUN curl -fsSL https://raw.githubusercontent.com/luxonis/depthai-ros/main/install_deps.sh | bash
 
-# System Python dependencies for ROS-native nodes
-RUN pip3 install --no-cache-dir pyyaml python-can pyserial
-
 # -----------------------------
 # ML-only virtual environment
 # (runtime only)
