@@ -1,3 +1,6 @@
+# ==============================
+# Base ROS image
+# ==============================
 FROM ros:jazzy-ros-base
 
 # -----------------------------
@@ -5,7 +8,10 @@ FROM ros:jazzy-ros-base
 # -----------------------------
 RUN apt-get update && apt-get install -y \
     tmux \
+    python3-pip \
     python3-venv \
+    python3-distutils \
+    build-essential \
     ros-jazzy-nav2-bringup \
     ros-jazzy-slam-toolbox \
     ros-jazzy-robot-localization \
@@ -14,7 +20,8 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     && rm -rf /var/lib/apt/lists/*
 
-###RUN pip3 install pyyaml python-can pyserial
+# System Python dependencies for ROS-native nodes
+RUN pip3 install --no-cache-dir pyyaml python-can pyserial
 
 # DepthAI deps (external script – keep but be aware it's fragile)
 RUN curl -fsSL https://raw.githubusercontent.com/luxonis/depthai-ros/main/install_deps.sh | bash
@@ -23,11 +30,18 @@ RUN curl -fsSL https://raw.githubusercontent.com/luxonis/depthai-ros/main/instal
 # ML-only virtual environment
 # (runtime only)
 # -----------------------------
-RUN python3 -m venv /opt/threat_venv && \
-    /opt/threat_venv/bin/pip install --upgrade pip && \
-    /opt/threat_venv/bin/pip install --no-cache-dir \
-        torch torchvision ultralytics \
-        "numpy==1.26.4"
+# Split steps for better error visibility
+RUN python3 -m venv /opt/threat_venv
+RUN /opt/threat_venv/bin/pip install --upgrade pip
+
+# Install Jetson-compatible PyTorch + ML stack
+# NOTE: Replace URL/version below with your JetPack version if needed
+RUN /opt/threat_venv/bin/pip install --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v51 \
+    torch==2.1.0+nv23.05 torchvision==0.16.0+nv23.05 \
+    && /opt/threat_venv/bin/pip install --no-cache-dir ultralytics numpy==1.26.4
+
+# Sanity check: venv exists
+RUN [ -x /opt/threat_venv/bin/python3 ] || (echo "VENV not created" && exit 1)
 
 # -----------------------------
 # ROS workspace
@@ -35,17 +49,19 @@ RUN python3 -m venv /opt/threat_venv && \
 WORKDIR /ros_ws
 COPY src/ src/
 
-# IMPORTANT: build with system Python
+# Build workspace with system Python
 RUN . /opt/ros/jazzy/setup.sh && \
     colcon build --symlink-install
 
 # -----------------------------
-# Runtime
+# Runtime setup
 # -----------------------------
 COPY docker/.tmux.conf /root/.tmux.conf
 COPY launch.sh /launch.sh
 RUN chmod +x /launch.sh
-
 COPY docker/fastrtps.xml /ros_ws/fastrtps.xml
 
+# -----------------------------
+# Default entrypoint
+# -----------------------------
 ENTRYPOINT ["/launch.sh"]
