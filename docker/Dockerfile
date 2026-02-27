@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     && rm -rf /var/lib/apt/lists/*
 
+###RUN pip3 install pyyaml python-can pyserial
+
 # DepthAI deps (external script – keep but be aware it's fragile)
 RUN curl -fsSL https://raw.githubusercontent.com/luxonis/depthai-ros/main/install_deps.sh | bash
 
