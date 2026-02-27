@@ -1,36 +1,52 @@
-# ==============================
-# Base image: NVIDIA Jetson PyTorch (GPU-enabled)
-# ==============================
-FROM nvcr.io/nvidia/l4t-pytorch:r35.1-pth2.1-py3
+FROM nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3
+
+ENV DEBIAN_FRONTEND=noninteractive
 
 # -----------------------------
-# System / ROS dependencies
+# Base system
 # -----------------------------
 RUN apt-get update && apt-get install -y \
-    tmux \
-    python3-pip \
+    curl \
+    gnupg \
+    lsb-release \
+    ca-certificates \
     build-essential \
-    python3-yaml \
-    python3-can \
-    python3-serial \
+    python3-pip \
+    python3-venv \
+    tmux \
+    && rm -rf /var/lib/apt/lists/*
+
+# -----------------------------
+# ROS 2 Jazzy repository
+# -----------------------------
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+    | gpg --dearmor -o /usr/share/keyrings/ros-archive-keyring.gpg
+
+RUN echo "deb [arch=arm64 signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
+    http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" \
+    > /etc/apt/sources.list.d/ros2.list
+
+# -----------------------------
+# ROS install
+# -----------------------------
+RUN apt-get update && apt-get install -y \
+    ros-jazzy-ros-base \
     ros-jazzy-nav2-bringup \
     ros-jazzy-slam-toolbox \
     ros-jazzy-robot-localization \
     ros-jazzy-depthai-ros \
-    curl \
-    gnupg \
+    python3-yaml \
+    python3-can \
+    python3-serial \
     && rm -rf /var/lib/apt/lists/*
 
-# DepthAI deps (external script – keep but be aware it's fragile)
-RUN curl -fsSL https://raw.githubusercontent.com/luxonis/depthai-ros/main/install_deps.sh | bash
-
 # -----------------------------
-# ML dependencies (system Python)
+# Jetson PyTorch
 # -----------------------------
-# Torch and torchvision already installed with GPU support in base image
-# Only install additional Python packages needed (Ultralytics, Numpy)
-RUN python3 -m pip install --upgrade pip setuptools wheel && \
-    python3 -m pip install --no-cache-dir ultralytics numpy==1.26.4
+RUN pip3 install --upgrade pip setuptools wheel && \
+    pip3 install --no-cache-dir \
+      --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v51 \
+      torch torchvision ultralytics numpy==1.26.4
 
 # -----------------------------
 # ROS workspace
@@ -38,19 +54,14 @@ RUN python3 -m pip install --upgrade pip setuptools wheel && \
 WORKDIR /ros_ws
 COPY src/ src/
 
-# Build workspace with system Python
 RUN . /opt/ros/jazzy/setup.sh && \
     colcon build --symlink-install
 
 # -----------------------------
-# Runtime setup
+# Runtime
 # -----------------------------
 COPY docker/.tmux.conf /root/.tmux.conf
 COPY launch.sh /launch.sh
 RUN chmod +x /launch.sh
-COPY docker/fastrtps.xml /ros_ws/fastrtps.xml
 
-# -----------------------------
-# Default entrypoint
-# -----------------------------
 ENTRYPOINT ["/launch.sh"]
