@@ -1,5 +1,0 @@
-# NVIDIA-provided wheel
-torch==2.1.0+nv23.05
-torchvision==0.16.0
-ultralytics==8.1.34
-numpy==1.26.4

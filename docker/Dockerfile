@@ -1,52 +1,47 @@
-FROM nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3
-
-ENV DEBIAN_FRONTEND=noninteractive
+# ==============================
+# Base ROS image
+# ==============================
+FROM ros:jazzy-ros-base
 
 # -----------------------------
-# Base system
+# System / ROS dependencies
 # -----------------------------
 RUN apt-get update && apt-get install -y \
-    curl \
-    gnupg \
-    lsb-release \
-    ca-certificates \
-    build-essential \
+    tmux \
     python3-pip \
     python3-venv \
-    tmux \
-    && rm -rf /var/lib/apt/lists/*
-
-# -----------------------------
-# ROS 2 Jazzy repository
-# -----------------------------
-RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
-    | gpg --dearmor -o /usr/share/keyrings/ros-archive-keyring.gpg
-
-RUN echo "deb [arch=arm64 signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
-    http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" \
-    > /etc/apt/sources.list.d/ros2.list
-
-# -----------------------------
-# ROS install
-# -----------------------------
-RUN apt-get update && apt-get install -y \
-    ros-jazzy-ros-base \
+    python3-setuptools \
+    python3-pyyml \
+    python3-can \
+    python3-serial \
+    build-essential \
     ros-jazzy-nav2-bringup \
     ros-jazzy-slam-toolbox \
     ros-jazzy-robot-localization \
     ros-jazzy-depthai-ros \
-    python3-yaml \
-    python3-can \
-    python3-serial \
+    curl \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
 
+# DepthAI deps (external script – keep but be aware it's fragile)
+RUN curl -fsSL https://raw.githubusercontent.com/luxonis/depthai-ros/main/install_deps.sh | bash
+
 # -----------------------------
-# Jetson PyTorch
+# ML-only virtual environment
+# (runtime only)
 # -----------------------------
-RUN pip3 install --upgrade pip setuptools wheel && \
-    pip3 install --no-cache-dir \
-      --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v51 \
-      torch torchvision ultralytics numpy==1.26.4
+# Split steps for better error visibility
+RUN python3 -m venv /opt/threat_venv
+RUN /opt/threat_venv/bin/python3 -m pip install --upgrade pip setuptools wheel
+
+# Install Jetson-compatible PyTorch + ML stack
+# NOTE: Replace URL/version below with your JetPack version if needed
+RUN /opt/threat_venv/bin/pip install --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v51 \
+    torch==2.1.0+nv23.05 torchvision==0.16.0+nv23.05 \
+    && /opt/threat_venv/bin/pip install --no-cache-dir ultralytics numpy==1.26.4
+
+# Sanity check: venv exists
+RUN [ -x /opt/threat_venv/bin/python3 ] || (echo "VENV not created" && exit 1)
 
 # -----------------------------
 # ROS workspace
@@ -54,14 +49,19 @@ RUN pip3 install --upgrade pip setuptools wheel && \
 WORKDIR /ros_ws
 COPY src/ src/
 
+# Build workspace with system Python
 RUN . /opt/ros/jazzy/setup.sh && \
     colcon build --symlink-install
 
 # -----------------------------
-# Runtime
+# Runtime setup
 # -----------------------------
 COPY docker/.tmux.conf /root/.tmux.conf
 COPY launch.sh /launch.sh
 RUN chmod +x /launch.sh
+COPY docker/fastrtps.xml /ros_ws/fastrtps.xml
 
+# -----------------------------
+# Default entrypoint
+# -----------------------------
 ENTRYPOINT ["/launch.sh"]
