@@ -162,7 +162,7 @@ class CameraHandler:
                 msg.header = Header()
                 msg.header.stamp = now.to_msg()
                 msg.header.frame_id = self.camera_name
-                msg.format = 'jpeg'
+                msg.format = 'h264'
                 msg.data = bytes(h264_data)
 
                 self.publisher.publish(msg)
